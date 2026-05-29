@@ -158,13 +158,13 @@ Fill in your numbers after running it:
 
 | Metric | Result |
 |---|---|
-| Throughput | ___ req/s |
-| Latency p50 | ___ ms |
-| Latency p95 | ___ ms |
-| Latency p99 | ___ ms |
-| Success rate | ___ % |
+| Throughput |  req/s |
+| Latency p50 | 236.8 ms |
+| Latency p95 | 1002.6 ms |
+| Latency p99 | 296.7 ms |
+| Success rate | 33 % | (rate-limited by design at 100 req/min)
 
-> Note: the ingestion view returns 200 immediately after enqueuing — latency here measures time to accept and persist the event, not time to deliver to the destination.
+> Note: the ingestion view returns 200 immediately after enqueuing — latency here measures time to accept and persist the event, not time to deliver to the destination. 429s are the rate limiter enforcing the configured limit
 
 ---
 
@@ -190,7 +190,11 @@ Fill in your numbers after running it:
 The entire stack — Django, Celery worker, Celery Beat, Redis, Postgres, and the React frontend served by nginx — runs with a single command:
 
 ```bash
+# First time or after code changes — rebuilds images
 docker compose up --build
+
+# Subsequent runs — uses existing images, starts faster
+docker compose up
 ```
 
 Open **http://localhost** in your browser. The nginx container proxies `/api/` and `/webhooks/` to Django and serves the React SPA for everything else.
