@@ -12,3 +12,4 @@ staticfiles
 .gitignore
 load_test.py
 payload.json
+.vscode/
