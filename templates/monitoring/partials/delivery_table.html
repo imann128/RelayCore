@@ -1,0 +1,43 @@
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Source</th>
+                <th>Event</th>
+                <th>Idempotency Key</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th>Received</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for delivery in recent_deliveries %}
+            <tr>
+                <td class="mono" style="color:#71717a">#{{ delivery.pk }}</td>
+                <td style="font-weight:500">{{ delivery.source.name|default:"—" }}</td>
+                <td class="mono">{{ delivery.event_type|default:"—" }}</td>
+                <td class="mono" style="color:#71717a">
+                    {{ delivery.idempotency_key|truncatechars:32 }}
+                </td>
+                <td>
+                    <span class="badge badge-{{ delivery.status }}">
+                        {{ delivery.get_status_display }}
+                    </span>
+                </td>
+                <td class="mono" style="text-align:center">{{ delivery.attempt_count }}</td>
+                <td style="color:#71717a">{{ delivery.received_at|date:"M d, H:i:s" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7">
+                    <div class="empty">
+                        <div class="empty-icon">◌</div>
+                        <div class="empty-text">No deliveries yet</div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,49 @@
+<div
+    id="metrics-panel"
+    hx-get="/dashboard/metrics/"
+    hx-trigger="every 10s"
+    hx-swap="outerHTML"
+    class="metrics-grid"
+>
+    {% with val=metrics.success_rate %}
+    <div class="metric-card {% if val < 80 %}danger{% elif val < 95 %}warn{% endif %}">
+        <span class="metric-icon">✦</span>
+        <div class="metric-value">{{ val|floatformat:1 }}%</div>
+        <div class="metric-label">Success Rate</div>
+        <span class="metric-trend {% if val >= 95 %}trend-good{% elif val >= 80 %}trend-warn{% else %}trend-danger{% endif %}">
+            {% if val >= 95 %}Healthy{% elif val >= 80 %}Degraded{% else %}Critical{% endif %}
+        </span>
+    </div>
+    {% endwith %}
+
+    {% with val=metrics.queue_depth %}
+    <div class="metric-card blue">
+        <span class="metric-icon">◈</span>
+        <div class="metric-value">{{ val|floatformat:0 }}</div>
+        <div class="metric-label">Queue Depth</div>
+        <span class="metric-trend {% if val < 100 %}trend-good{% elif val < 500 %}trend-warn{% else %}trend-danger{% endif %}">
+            {% if val < 100 %}Normal{% elif val < 500 %}Elevated{% else %}High{% endif %}
+        </span>
+    </div>
+    {% endwith %}
+
+    {% with val=metrics.dead_letter_count %}
+    <div class="metric-card {% if val > 0 %}danger{% endif %}">
+        <span class="metric-icon">✗</span>
+        <div class="metric-value">{{ val|floatformat:0 }}</div>
+        <div class="metric-label">Dead Letter Queue</div>
+        <span class="metric-trend {% if val == 0 %}trend-good{% else %}trend-danger{% endif %}">
+            {% if val == 0 %}Clear{% else %}Action needed{% endif %}
+        </span>
+    </div>
+    {% endwith %}
+
+    {% with val=metrics.throughput_1m %}
+    <div class="metric-card blue">
+        <span class="metric-icon">⚡</span>
+        <div class="metric-value">{{ val|floatformat:0 }}</div>
+        <div class="metric-label">Throughput / min</div>
+        <span class="metric-trend trend-blue">Live</span>
+    </div>
+    {% endwith %}
+</div>

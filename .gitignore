@@ -1,0 +1,11 @@
+﻿.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+staticfiles/
+*.sqlite3
+.pytest_cache/
+node_modules/
+frontend/dist/
+payload.json

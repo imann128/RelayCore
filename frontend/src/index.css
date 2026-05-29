@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Roboto Slab', Georgia, serif;
+}
+
+code, pre, .mono {
+  font-family: 'Roboto Mono', monospace;
+}
+
+.material-icons-round {
+  font-size: inherit;
+  line-height: 1;
+  vertical-align: middle;
+  user-select: none;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #091a0d; }
+::-webkit-scrollbar-thumb { background: #1e3d24; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #245c2e; }
