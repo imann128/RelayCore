@@ -158,11 +158,12 @@ Fill in your numbers after running it:
 
 | Metric | Result |
 |---|---|
-| Throughput |  req/s |
-| Latency p50 | 236.8 ms |
+| Throughput | 65.9 req/s |
+| Wall time  | 4.55 s     |
+| Latency p50 | 236.8 ms  |
 | Latency p95 | 1002.6 ms |
-| Latency p99 | 296.7 ms |
-| Success rate | 33 % | (rate-limited by design at 100 req/min)
+| Latency p99 | 296.7 ms  |
+| Success rate | 33 %     | (rate-limited by design at 100 req/min)
 
 > Note: the ingestion view returns 200 immediately after enqueuing — latency here measures time to accept and persist the event, not time to deliver to the destination. 429s are the rate limiter enforcing the configured limit
 
