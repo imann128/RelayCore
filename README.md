@@ -156,7 +156,7 @@ python load_test.py --url http://localhost --slug your-source-slug --requests 30
 
 Results on a development laptop running the full Docker stack (4 gunicorn workers, single Celery worker, Redis and Postgres in containers):
 
-Note: Github-sug was used
+Note: Github-slug was used
 
 - Accepted: 1 (first unique request)
 - Duplicates: 99 (idempotency working, same payload detected and dropped cleanly)
