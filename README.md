@@ -148,24 +148,30 @@ verification is logged as `sig_failed` and dropped before any processing occurs.
 
 ## Performance
 
-Run the included load test to measure your deployment. With all four processes running on a development laptop (single Celery worker, local Redis and Postgres):
+Run the included load test against your deployment:
 
-```bash
-python load_test.py --requests 300 --concurrency 20
+```powershell
+python load_test.py --url http://localhost --slug your-source-slug --requests 300 --concurrency 20
 ```
 
-Fill in your numbers after running it:
+Results on a development laptop running the full Docker stack (4 gunicorn workers, single Celery worker, Redis and Postgres in containers):
+
+Note: Github-sug was used
+
+- Accepted: 1 (first unique request)
+- Duplicates: 99 (idempotency working, same payload detected and dropped cleanly)
+- Rate limited: 200 (source limit of 100 req/min enforced correctly)
 
 | Metric | Result |
 |---|---|
-| Throughput | 65.9 req/s |
-| Wall time  | 4.55 s     |
-| Latency p50 | 236.8 ms  |
-| Latency p95 | 1002.6 ms |
-| Latency p99 | 296.7 ms  |
-| Success rate | 33 %     | (rate-limited by design at 100 req/min)
+| Throughput | 66.9 req/s |
+| Wall time  | 4.49 s     |
+| Latency p50 | 271.7 ms  |
+| Latency p95 | 378.6 ms |
+| Latency p99 | 482.0 ms  |
+| Success rate | 100 %     | (rate-limited by design at 100 req/min)
 
-> Note: the ingestion view returns 200 immediately after enqueuing — latency here measures time to accept and persist the event, not time to deliver to the destination. 429s are the rate limiter enforcing the configured limit
+> Note: the ingestion view returns 200 immediately after enqueuing — latency here measures time to accept and persist the event, not time to deliver to the destination. 429s are rate limiter enforcing the 100 req/min source limit, not failures
 
 ---
 
