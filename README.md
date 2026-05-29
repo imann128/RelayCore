@@ -4,7 +4,7 @@
 
 ---
 
-## Why We Built This
+## Why is it needed
 
 Modern software stacks generate events from dozens of producers: GitHub pushes, form submissions, calendar changes, payment callbacks. Each destination (Slack, Discord, a database, an email service) expects a different payload shape, and each producer has its own signature scheme, retry logic, and delivery guarantees. The naive solution is point-to-point glue code: a script per integration, no visibility, no retries, no deduplication.
 
@@ -203,7 +203,13 @@ docker compose exec web python manage.py createsuperuser
 
 **Environment variables**
 
-Copy `.env` and set at minimum:
+Copy `.env.example` to `.env` and fill in your values:
+
+```powershell
+cp .env.example .env
+```
+
+Set at minimum:
 
 ```env
 SECRET_KEY=your-django-secret-key
