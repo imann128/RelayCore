@@ -1,4 +1,6 @@
 # RelayCore
+[![Docker](https://img.shields.io/docker/pulls/imann122/relaycore)](https://hub.docker.com/r/imann122/relaycore)
+[![GitHub](https://img.shields.io/github/stars/imann128/RelayCore)](https://github.com/imann128/RelayCore)
 
 > A self-hosted event gateway that ingests, verifies, deduplicates, routes, and delivers HTTP webhook events with the same structural discipline a SOC applies to alert pipelines.
 
