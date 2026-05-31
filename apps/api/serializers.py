@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rest_framework import serializers
+from auditlog.models import LogEntry
 
 from apps.core.models import Destination, MetricPoint, Route, Source, WebhookDelivery
 from apps.transformers.choices import TRANSFORMER_CHOICES
@@ -31,6 +32,15 @@ class DestinationSerializer(serializers.ModelSerializer):
         model = Destination
         fields = ['id', 'name', 'url', 'auth_header', 'timeout_seconds', 'is_active', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+    def validate_url(self, value):
+        from apps.core.validators import validate_destination_url
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_destination_url(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message)
+        return value
 
 
 class RouteSerializer(serializers.ModelSerializer):
@@ -73,3 +83,29 @@ class MetricPointSerializer(serializers.ModelSerializer):
         model = MetricPoint
         fields = ['id', 'name', 'value', 'labels', 'timestamp']
         read_only_fields = ['id', 'name', 'value', 'labels', 'timestamp']
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    actor = serializers.SerializerMethodField()
+    action = serializers.SerializerMethodField()
+    resource_type = serializers.SerializerMethodField()
+    resource_repr = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LogEntry
+        fields = [
+            'id', 'actor', 'action', 'resource_type', 'resource_repr',
+            'object_id', 'changes', 'timestamp',
+        ]
+
+    def get_actor(self, obj):
+        return obj.actor.username if obj.actor else 'system'
+
+    def get_action(self, obj):
+        return obj.get_action_display()
+
+    def get_resource_type(self, obj):
+        return obj.content_type.model if obj.content_type else ''
+
+    def get_resource_repr(self, obj):
+        return obj.object_repr

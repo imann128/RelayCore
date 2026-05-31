@@ -21,8 +21,14 @@ export default function Login() {
     try {
       await login({ username, password })
       navigate('/')
-    } catch {
-      setError('Invalid username or password.')
+    } catch (err: any) {
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail ?? ''
+      if (status === 403 || detail.toLowerCase().includes('locked') || detail.toLowerCase().includes('too many')) {
+        setError('Account locked — too many failed attempts. Try again in 1 hour.')
+      } else {
+        setError('Invalid username or password.')
+      }
     } finally {
       setLoading(false)
     }
@@ -37,7 +43,7 @@ export default function Login() {
             <Icon name="bolt" size={28} className="text-white" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-100">Webhook Relay</h1>
+            <h1 className="text-2xl font-bold text-slate-100">RelayCore</h1>
             <p className="text-sm text-green-400/70 mt-0.5">Universal Event Gateway</p>
           </div>
         </div>

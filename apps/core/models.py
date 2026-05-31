@@ -1,5 +1,7 @@
 from django.db import models
+from auditlog.registry import auditlog
 from apps.core.fields import EncryptedCharField
+from apps.core.validators import validate_destination_url
 
 
 class Source(models.Model):
@@ -47,6 +49,9 @@ class Destination(models.Model):
     timeout_seconds = models.IntegerField(default=30)
     is_active       = models.BooleanField(default=True)
     created_at      = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        validate_destination_url(self.url)
 
     def __str__(self):
         return f"{self.name} ({self.url})"
@@ -142,3 +147,8 @@ class MetricPoint(models.Model):
 
     def __str__(self):
         return f"{self.name}={self.value} @ {self.timestamp}"
+
+
+auditlog.register(Source)
+auditlog.register(Destination, exclude_fields=['auth_header'])
+auditlog.register(Route)

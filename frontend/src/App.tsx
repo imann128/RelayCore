@@ -8,6 +8,7 @@ import Sources from '@/pages/Sources'
 import Destinations from '@/pages/Destinations'
 import RoutesPage from '@/pages/Routes'
 import Deliveries from '@/pages/Deliveries'
+import AuditLog from '@/pages/AuditLog'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="destinations" element={<Destinations />} />
           <Route path="routes"       element={<RoutesPage />} />
           <Route path="deliveries"   element={<Deliveries />} />
+          <Route path="audit-log"    element={<AuditLog />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

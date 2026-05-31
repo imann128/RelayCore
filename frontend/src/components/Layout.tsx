@@ -9,6 +9,7 @@ const navItems = [
   { to: '/destinations', label: 'Destinations', icon: 'place' },
   { to: '/routes',       label: 'Routes',       icon: 'alt_route' },
   { to: '/deliveries',   label: 'Deliveries',   icon: 'local_shipping' },
+  { to: '/audit-log',    label: 'Audit Log',    icon: 'manage_search' },
 ]
 
 export default function Layout() {
@@ -23,7 +24,7 @@ export default function Layout() {
           <div className="w-7 h-7 rounded-lg bg-green-600 flex items-center justify-center">
             <Icon name="bolt" size={16} className="text-white" />
           </div>
-          <span className="font-semibold text-sm text-slate-100 tracking-tight">Webhook Relay</span>
+          <span className="font-semibold text-sm text-slate-100 tracking-tight">RelayCore</span>
         </div>
 
         {/* Nav */}

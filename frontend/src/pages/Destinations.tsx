@@ -20,20 +20,35 @@ export default function Destinations() {
   const [editing, setEditing] = useState<Destination | null>(null)
   const [form, setForm] = useState<CreateDestination>(empty)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [formError, setFormError] = useState<string>('')
 
   const { data, isLoading } = useQuery({ queryKey: ['destinations'], queryFn: destinationsApi.list })
   const inv = () => qc.invalidateQueries({ queryKey: ['destinations'] })
 
-  const createMut = useMutation({ mutationFn: destinationsApi.create, onSuccess: () => { inv(); setModal(null) } })
+  function extractError(err: any): string {
+    const d = err?.response?.data
+    if (!d) return 'An unexpected error occurred.'
+    if (d.url) return Array.isArray(d.url) ? d.url[0] : d.url
+    if (d.detail) return d.detail
+    const first = Object.values(d)[0]
+    return Array.isArray(first) ? (first as string[])[0] : String(first)
+  }
+
+  const createMut = useMutation({
+    mutationFn: destinationsApi.create,
+    onSuccess: () => { inv(); setModal(null); setFormError('') },
+    onError: (err: any) => setFormError(extractError(err)),
+  })
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<CreateDestination> }) => destinationsApi.update(id, data),
-    onSuccess: () => { inv(); setModal(null) },
+    onSuccess: () => { inv(); setModal(null); setFormError('') },
+    onError: (err: any) => setFormError(extractError(err)),
   })
   const deleteMut = useMutation({ mutationFn: destinationsApi.delete, onSuccess: () => { inv(); setDeleteId(null) } })
   const toggleMut = useMutation({ mutationFn: destinationsApi.toggleActive, onSuccess: inv })
 
-  function openCreate() { setForm(empty); setModal('create') }
-  function openEdit(d: Destination) { setEditing(d); setForm({ ...d, auth_header: '' }); setModal('edit') }
+  function openCreate() { setForm(empty); setFormError(''); setModal('create') }
+  function openEdit(d: Destination) { setEditing(d); setForm({ ...d, auth_header: '' }); setFormError(''); setModal('edit') }
   function save() {
     if (modal === 'create') createMut.mutate(form)
     else if (editing) updateMut.mutate({ id: editing.id, data: form })
@@ -95,6 +110,11 @@ export default function Destinations() {
               className="rounded border-[#245c2e] bg-[#183d21] text-green-600" />
             <Label htmlFor="dst_active" className="mb-0">Active</Label>
           </div>
+          {formError && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-md px-3 py-2">
+              <Icon name="error_outline" size={16} />{formError}
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="secondary" onClick={() => setModal(null)}>Cancel</Button>

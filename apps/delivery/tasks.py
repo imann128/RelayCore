@@ -120,9 +120,18 @@ def _post_to_destination(destination, payload: dict) -> None:
     """
     HTTP POST the transformed payload to a destination URL.
 
-    auth_header is stored encrypted on the model. The EncryptedCharField
-    transparently decrypts on access — no extra steps here.
+    Validates the URL against private IP ranges before posting (defence in
+    depth — the model's clean() method is the primary guard, this catches
+    any rows inserted outside the API).
     """
+    from apps.core.validators import validate_destination_url
+    from django.core.exceptions import ValidationError
+
+    try:
+        validate_destination_url(destination.url)
+    except ValidationError as e:
+        raise ValueError(f"SSRF guard blocked delivery to {destination.url}: {e.message}")
+
     headers = {'Content-Type': 'application/json'}
     if destination.auth_header:
         headers['Authorization'] = destination.auth_header

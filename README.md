@@ -123,28 +123,79 @@ verification is logged as `sig_failed` and dropped before any processing occurs.
 
 ---
 
+## Security
+
+RelayCore treats security as a layered concern — each layer is independent so a bypass of one does not compromise the others.
+
+### Inbound webhook authenticity
+
+Every source can be configured with an HMAC-SHA256 secret. When a webhook arrives, RelayCore recomputes the signature over the raw request body using that secret and compares it against the `X-Hub-Signature-256` header sent by the producer. The comparison uses Python's `hmac.compare_digest()` rather than `==`, which prevents timing attacks — an attacker who measures response time cannot learn how many bytes of a guessed signature are correct.
+
+A request that fails verification is immediately rejected with HTTP 401. A `WebhookDelivery` row is still written with `status=sig_failed` so the attempt is auditable, but no Celery task is enqueued and no processing occurs.
+
+### Replay attack prevention
+
+Providers like GitHub retry failed deliveries. Without deduplication, a network blip could result in the same event being processed multiple times. RelayCore uses an atomic Redis `SET NX EX` operation to register each event's idempotency key the first time it is seen. `SET NX` is a single atomic Redis command — it is not a GET followed by a SET, which would have a race condition where two concurrent requests with the same key could both pass the check. Only one caller wins. A second request carrying the same key within the 24-hour TTL window returns HTTP 200 with `{"status": "duplicate"}` and is logged but not processed.
+
+### Rate limiting
+
+Two independent rate limits protect against volume abuse. At the source level, the ingestion view checks a Redis sliding-window counter before creating any database rows — a producer that exceeds its configured requests-per-minute limit receives HTTP 429 with a `Retry-After: 60` header. At the route level, the Celery delivery task checks a separate counter per route — a route that is over its limit is skipped for that delivery but other matching routes still execute, so a misbehaving route does not block fan-out to other destinations.
+
+### SSRF protection
+
+Server-Side Request Forgery is a class of attack where a server is tricked into making HTTP requests to internal infrastructure on behalf of an attacker. In a webhook relay this is a real risk — a user with dashboard access could create a destination pointing to `http://169.254.169.254/latest/meta-data/` (the AWS instance metadata endpoint) or `http://192.168.1.1/` (an internal router). RelayCore blocks this at two independent points.
+
+The first check runs in `Destination.clean()` when a destination is saved through the API. The URL's hostname is resolved to an IP address and validated against a blocklist of RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopback (`127.0.0.0/8`), and link-local addresses (`169.254.0.0/16`, which covers the AWS metadata endpoint). If the resolved IP falls in any blocked range, the save is rejected with a validation error.
+
+The second check runs inside the Celery delivery task immediately before the outbound HTTP POST. This is defence in depth — it catches any destination rows that were inserted directly into the database bypassing the API. A blocked URL raises a `ValueError` which is treated as a delivery failure and follows the normal retry and dead-letter flow.
+
+![SSRF-Protection](images/SSRF.png)
+
+### Brute-force login protection
+
+The login endpoint (`/api/auth/login/`) is protected by `django-axes`. After 5 consecutive failed login attempts for the same username, that account is locked out for one hour regardless of which IP address the attempts came from. The lockout counter resets automatically on a successful login. Tracking by username rather than IP prevents credential stuffing even from distributed sources where each attempt originates from a different address.
+
+![Brute-Force-Login](images/Brute-Force.png)
+
+### Encrypted credentials at rest
+
+Destination `auth_header` values (Bearer tokens, API keys) are encrypted before being written to the database using Fernet symmetric encryption from Python's `cryptography` library. The encryption key is held in the environment variable `FIELD_ENCRYPTION_KEY` and never touches the database. A complete database dump does not expose any usable credentials — the ciphertext is unreadable without the key. The decryption happens transparently in memory inside the Celery delivery task and the plaintext value is never persisted anywhere.
+
+### User action audit log
+
+Every create, update, and delete operation on Sources, Destinations, and Routes is recorded by `django-auditlog` with the acting user, a UTC timestamp, and a field-level diff showing the exact values that changed. The `auth_header` field is explicitly excluded from diffs so encrypted credential values never appear in the audit log. The log is viewable in the Audit Log page of the dashboard and is stored in the database as an immutable append-only record.
+
+![Audit Log](images/Audit-Log.png)
+
+### HTTPS and secure cookies
+
+When `DEBUG=False` (any non-local deployment), RelayCore activates `SECURE_SSL_REDIRECT` to redirect all HTTP traffic to HTTPS, sets HSTS headers with a one-year max-age to instruct browsers to always use HTTPS for the domain, and marks both the session cookie and the CSRF cookie as `Secure` so they are never transmitted over plain HTTP.
+
+---
+
 ## Threat Model
 
 **What RelayCore protects against**
 
-- *Event spoofing* — HMAC-SHA256 verification ensures only producers who hold the shared secret can inject events into a source. A forged request fails before any DB write or task is enqueued.
-- *Replay attacks* — the idempotency layer detects and drops repeated delivery of the same event. Even if an attacker captures and replays a valid signed request, the second delivery is silently absorbed (and logged as `duplicate`) without re-processing.
-- *Abuse / DDoS via high event volume* — source-level and route-level rate limits (Redis sliding window) cap how many events a single producer can push per minute. Requests over the limit receive a 429 with a `Retry-After` header.
+- *Event spoofing* — HMAC-SHA256 verification ensures only producers who hold the shared secret can inject events into a source. A forged request fails before any DB write or task is enqueued. Signature comparison uses `hmac.compare_digest()` to prevent timing attacks.
+- *Replay attacks* — the idempotency layer detects and drops repeated delivery of the same event. Even if an attacker captures and replays a valid signed request, the second delivery is silently absorbed (logged as `duplicate`) without re-processing.
+- *Abuse / DDoS via high event volume* — source-level and route-level rate limits (Redis sliding window) cap events per minute. Requests over the limit receive 429 with a `Retry-After` header.
 - *Credential leakage in storage* — destination auth headers (API keys, Bearer tokens) are encrypted at rest with Fernet. A full database dump does not expose usable credentials.
+- *SSRF via destination URLs* — destination URLs are validated against RFC 1918 private ranges, loopback, and link-local addresses (including the AWS metadata endpoint `169.254.169.254`) both at save time and again in the delivery worker before posting. Attempts to route events to internal infrastructure are blocked at both layers.
+- *Brute-force login attacks* — `django-axes` locks out a username after 5 failed login attempts for 1 hour, with automatic reset on successful login. Tracking by username rather than IP remains effective against distributed attacks where each attempt uses a different source address.
+- *User action accountability* — every create, update, and delete on Sources, Destinations, and Routes is recorded via `django-auditlog` with actor, timestamp, and field-level diff. `auth_header` is excluded from diffs so encrypted credentials never appear in the log.
+- *HTTPS in production* — `SECURE_SSL_REDIRECT`, HSTS, and secure cookie flags activate automatically when `DEBUG=False`.
 
 **What it explicitly does not protect against**
 
 - *Compromised HMAC secrets* — if a producer's secret is leaked, an attacker can craft valid signatures indefinitely. Rotate secrets via the Sources page; there is no automatic secret rotation.
-- *SSRF via destination URLs* — Relay will POST to any URL configured as a destination, including internal network addresses (`http://192.168.x.x/`, `http://localhost/`). In production, enforce a network-level allowlist for egress traffic.
-- *Payload content* — Relay verifies the envelope (signature, rate limit, idempotency) but does not inspect or sanitise the payload body. Transformers receive raw producer data.
+- *Payload content* — RelayCore verifies the envelope (signature, rate limit, idempotency) but does not inspect or sanitise the payload body. Transformers receive raw producer data.
 - *Man-in-the-middle on outbound delivery* — `httpx` uses system CA certificates but does not enforce certificate pinning to destinations.
 
 **What would be added in a production hardening pass**
 
-- Destination URL allowlist / SSRF guard (block private IP ranges before enqueuing).
-- Automatic secret rotation with overlap window for zero-downtime key changes.
+- Automatic HMAC secret rotation with overlap window for zero-downtime key changes.
 - mTLS for inbound producer connections where the producer supports client certificates.
-- Per-delivery audit log of which transformer ran and what the transformed payload looked like, separate from the raw payload record.
 
 ---
 
@@ -191,6 +242,7 @@ Note: Github-slug was used
 | Frontend | React 18, TypeScript, Vite 5 |
 | Styling | Tailwind CSS 3, Material Icons Round, Roboto Slab |
 | Data fetching | TanStack Query v5, Axios |
+| Audit logging | django-auditlog 3.0 |
 
 ---
 
@@ -414,7 +466,7 @@ relaycore_project/
 ├── frontend/src/
 │   ├── api/            # Axios clients per resource
 │   ├── components/     # Layout, Modal, UI primitives
-│   └── pages/          # Overview, Sources, Destinations, Routes, Deliveries
+│   └── pages/          # Overview, Sources, Destinations, Routes, Deliveries, AuditLog
 ├── tests/              # pytest suite
 ├── relaycore/      # Django settings, Celery bootstrap, root URLs
 └── requirements.txt

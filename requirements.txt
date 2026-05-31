@@ -23,6 +23,12 @@ cryptography   # Encrypts Destination.auth_header at rest
 djangorestframework>=3.15
 django-cors-headers>=4.3
 
+# Audit logging
+django-auditlog>=3.0
+
+# Security
+django-axes>=6.4
+
 # Production server
 gunicorn>=22.0
 whitenoise>=6.7

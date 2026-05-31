@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from django.contrib.auth import authenticate, login, logout
+from django.http import JsonResponse
+from axes.models import AccessAttempt
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -8,12 +10,21 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from auditlog.models import LogEntry
 from apps.core.models import Destination, MetricPoint, Route, Source, WebhookDelivery
 
 from .serializers import (
-    DestinationSerializer, MetricPointSerializer, RouteSerializer,
-    SourceSerializer, WebhookDeliverySerializer,
+    AuditLogSerializer, DestinationSerializer, MetricPointSerializer,
+    RouteSerializer, SourceSerializer, WebhookDeliverySerializer,
 )
+
+
+def axes_lockout_json(request, credentials=None, *args, **kwargs):
+    """Return JSON 403 when axes locks out a login attempt."""
+    return JsonResponse(
+        {'detail': 'Account locked due to too many failed login attempts. Try again in 1 hour.'},
+        status=403,
+    )
 
 
 class LoginView(APIView):
@@ -25,6 +36,18 @@ class LoginView(APIView):
         password = request.data.get('password', '')
         if not username or not password:
             return Response({'detail': 'username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.conf import settings as django_settings
+        failure_limit = getattr(django_settings, 'AXES_FAILURE_LIMIT', 5)
+        if AccessAttempt.objects.filter(
+            username=username,
+            failures_since_start__gte=failure_limit,
+        ).exists():
+            return Response(
+                {'detail': 'Account locked due to too many failed login attempts. Try again in 1 hour.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         user = authenticate(request, username=username, password=password)
         if user is None:
             return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -120,3 +143,11 @@ class MetricsView(APIView):
             'latest': latest,
             'history': MetricPointSerializer(recent, many=True).data,
         })
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = LogEntry.objects.select_related(
+        'actor', 'content_type'
+    ).order_by('-timestamp')
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated]

@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from .views import (
-    DestinationViewSet, LoginView, LogoutView, MeView,
+    AuditLogViewSet, DestinationViewSet, LoginView, LogoutView, MeView,
     MetricsView, RouteViewSet, SourceViewSet, WebhookDeliveryViewSet,
 )
 
@@ -10,6 +10,7 @@ router.register(r'sources',      SourceViewSet,          basename='source')
 router.register(r'destinations', DestinationViewSet,     basename='destination')
 router.register(r'routes',       RouteViewSet,           basename='route')
 router.register(r'deliveries',   WebhookDeliveryViewSet, basename='delivery')
+router.register(r'audit-log',    AuditLogViewSet,        basename='audit-log')
 
 urlpatterns = [
     path('auth/login/',  LoginView.as_view(),  name='api-login'),
