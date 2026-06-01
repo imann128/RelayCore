@@ -97,12 +97,11 @@ The analogy is not cosmetic. The architectural problems are identical: at-least-
 └─────────────────────────────────────────────────────────┘
 ```
 ## Screenshots
-![Django Admin Login](images/Django-admin)
+![Django Admin Login](images/Django-admin.png)
 ![Dashboard](images/Dashboard-Overview.png)
 ![Routes](images/New-Route.png)
 ![Deliveries](images/Delieveries.png)
  
-
 ---
 
 ## Key Design Decisions
